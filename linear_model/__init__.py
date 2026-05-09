@@ -1,0 +1,2 @@
+from ._regression import LinearRegression
+from ._classification import LogisticRegression, OvRLogisticRegression
