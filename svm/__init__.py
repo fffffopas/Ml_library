@@ -1,1 +1,1 @@
-from ._classification import SVC
+from ._classification import SVC, SVC_BASE

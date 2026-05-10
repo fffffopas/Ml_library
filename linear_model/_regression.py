@@ -1,5 +1,4 @@
 import numpy as np
-
 from sklearn.base import RegressorMixin, BaseEstimator
 
 class LinearRegression(RegressorMixin, BaseEstimator):

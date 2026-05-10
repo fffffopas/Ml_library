@@ -1,7 +1,7 @@
 import numpy as np
-from sklearn.base import RegressorMixin, BaseEstimator
+from sklearn.base import ClassifierMixin, BaseEstimator
 
-class LogisticRegression(RegressorMixin, BaseEstimator):
+class LogisticRegression(ClassifierMixin, BaseEstimator):
     def __init__(self, max_iter=1000, batch_size=64, lr=0.1):
         self.coef_ = None
         self.intercept_ = None
@@ -50,10 +50,8 @@ class LogisticRegression(RegressorMixin, BaseEstimator):
         return (self.predict_proba(X)[:, 1] >= 0.5).astype(int)
 
 
-class OvRLogisticRegression(RegressorMixin, BaseEstimator):
+class OvRLogisticRegression(ClassifierMixin, BaseEstimator):
     def __init__(self, max_iter=1000, batch_size=64, lr=0.1):
-        self.coef_ = None
-        self.intercept_ = None
         self.max_iter = max_iter
         self.batch_size = batch_size
         self.lr = lr
