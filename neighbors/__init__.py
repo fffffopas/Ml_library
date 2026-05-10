@@ -1,0 +1,2 @@
+from ._classification import KNeighborsClassifier
+from ._regression import KNeighborsRegressor
