@@ -1,2 +1,2 @@
 from ._classification import RandomForestClassifier
-from ._regression import RandomForestRegressor
+from ._regression import RandomForestRegressor, GradientBoostingRegressor
