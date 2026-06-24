@@ -1,31 +1,20 @@
 import numpy as np
 import pandas as pd
 from .__auxiliary_tree import Node
-from sklearn.base import ClassifierMixin, BaseEstimator
+from sklearn.base import RegressorMixin, BaseEstimator
 
-class DecisionTreeClassifier(ClassifierMixin, BaseEstimator):
-    def __init__(self, criterion="gini", max_depth=10, min_samples_split=2, min_samples_leaf=1, max_features="sqrt", random_state=42, min_impurity_decrease=1e-12):
-        self.criterion = criterion
+class DecisionTreeRegressor(RegressorMixin, BaseEstimator):
+    def __init__(self, max_depth=10, min_samples_split=2, min_samples_leaf=1, max_features="sqrt", random_state=42, min_impurity_decrease=1e-12, min_var=1e-12):
         self.max_depth = max_depth
         self.min_samples_split = min_samples_split
         self.min_samples_leaf = min_samples_leaf
         self.max_features = max_features
         self.random_state = random_state
         self.min_impurity_decrease = min_impurity_decrease
+        self.min_var = min_var
 
-    def _gini(self, _count_classes):
-        _gini_estimate = 1 - np.sum((_count_classes) ** 2)
-        return _gini_estimate
-
-    def _entropy(self, _count_classes, eps=1e-12):
-        _entropy_estimate = -1 * np.sum(_count_classes * np.log2(_count_classes + eps))
-        return _entropy_estimate
-
-    def _get_criterion_estimate(self, _count_classes):
-        if self.criterion == "gini":
-            return self._gini(_count_classes)
-        
-        return self._entropy(_count_classes)
+    def _get_criterion_estimate(self, sum_y, sum_sq_y, n):
+        return sum_sq_y/n - (sum_y/n) ** 2
     
     def _get_count_features(self, total_count):
         if isinstance(self.max_features, int):
@@ -42,8 +31,8 @@ class DecisionTreeClassifier(ClassifierMixin, BaseEstimator):
             return np.asarray(X)
 
     def _build_tree(self, X, y, node, depth, root_criterion, sorted_index, index_sample):
-        if(len(y[index_sample]) < self.min_samples_split or depth >= self.max_depth or np.unique(y[index_sample]).shape[0] == 1):
-            node.val = np.argmax(np.bincount(y[index_sample]))
+        if(len(y[index_sample]) < self.min_samples_split or depth >= self.max_depth or root_criterion < self.min_var):
+            node.val = np.mean(y[index_sample])
             return 
 
         best_split = [-float("inf")] * 5
@@ -53,33 +42,40 @@ class DecisionTreeClassifier(ClassifierMixin, BaseEstimator):
             unique_values, index_box = np.unique(X[sorted_sample_index, i], return_index=True)
             tresholds = (unique_values[:-1] + unique_values[1:])/2
 
-            count_classes_left = np.zeros(self.count_unique_classes)
+            sum_left = 0
+            sum_sq_left = 0
             size_left = 0
 
-            count_classes_right = np.bincount(y[index_sample], minlength=self.count_unique_classes)
+            sum_right = np.sum(y[index_sample])
+            sum_sq_right = np.sum(y[index_sample] ** 2)
             size_right = y[index_sample].shape[0]
             y_sort = y[sorted_sample_index]
 
             for j in range(len(index_box)-1):
-                box = np.bincount(y_sort[index_box[j] :index_box[j+1]], minlength=self.count_unique_classes)
-                count_classes_left += box
-                size_left += np.sum(box) 
+                y_box = y_sort[index_box[j]:index_box[j+1]]
+                sum_y_box = np.sum(y_box)
+                sum_y_sq_box = np.sum(y_box ** 2)
 
-                count_classes_right -= box
-                size_right -= np.sum(box)
+                sum_left += sum_y_box
+                sum_sq_left += sum_y_sq_box
+                size_left += y_box.shape[0]
+
+                sum_right -= sum_y_box
+                sum_sq_right -= sum_y_sq_box
+                size_right -= y_box.shape[0]
 
                 if(size_left < self.min_samples_leaf or size_right < self.min_samples_leaf):
                     continue
 
-                left_criterion = self._get_criterion_estimate(count_classes_left/size_left)
-                right_criterion = self._get_criterion_estimate(count_classes_right/size_right)
+                left_criterion = self._get_criterion_estimate(sum_left, sum_sq_left, size_left)
+                right_criterion = self._get_criterion_estimate(sum_right, sum_sq_right, size_right)
                 IG = root_criterion - size_left/y_sort.shape[0] * left_criterion - size_right/y_sort.shape[0] * right_criterion
 
                 if IG > best_split[0] and IG > self.min_impurity_decrease:
                     best_split = [IG, i, tresholds[j], left_criterion, right_criterion]
 
         if (best_split[0] == -float("inf")):
-            node.val = np.argmax(np.bincount(y[index_sample]))
+            node.val = np.mean(y[index_sample])
             return 
 
         node.tresh = best_split[2]
@@ -101,11 +97,10 @@ class DecisionTreeClassifier(ClassifierMixin, BaseEstimator):
 
         self._rng = np.random.default_rng(self.random_state)
         self._total_features = self._get_count_features(X_.shape[1])
-        self.count_unique_classes = np.max(np.unique(y_)) + 1
 
         sorted_index = np.argsort(X_, axis=0)
         index_sample = np.arange(0, X_.shape[0])
-        root_criterion = self._get_criterion_estimate(np.bincount(y_, minlength=self.count_unique_classes)/y_.shape[0])
+        root_criterion = self._get_criterion_estimate(np.sum(y_), np.sum(y_ ** 2), y_.shape[0])
 
         self.node = Node()
         self._build_tree(X_, y_, self.node, 1, root_criterion, sorted_index, index_sample)
@@ -123,7 +118,7 @@ class DecisionTreeClassifier(ClassifierMixin, BaseEstimator):
     def predict(self, X):
         X_ = self._converter_to_numpy(X)
 
-        result = np.zeros(len(X_), dtype=np.int32)
+        result = np.zeros(len(X_), dtype=np.float64)
         for i in range(len(X_)):
             result[i] = self._go_by_tree(X_[i, :], self.node)
 
