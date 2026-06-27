@@ -140,7 +140,7 @@ class GradientBoostingClassifier(ClassifierMixin, BaseEstimator):
         return (self.predict_proba(X) > 0.5).astype(int)
     
 
-def GradientBoostingMutliClassification(ClassifierMixin, BaseEstimator):
+class GradientBoostingMutliClassification(ClassifierMixin, BaseEstimator):
     def __init__(self, n_estimators=50, learning_rate=0.1, max_depth=3, max_features="sqrt", min_samples_split=2, min_samples_leaf=1, random_state=42):
         self.n_estimators = n_estimators
         self.learning_rate = learning_rate
@@ -189,7 +189,7 @@ def GradientBoostingMutliClassification(ClassifierMixin, BaseEstimator):
             "random_state" : self.random_state
         }
         self.unique_label, counts = np.unique(y_, return_counts=True)
-        self._estimators = [[] for i in range(self.unique_label.shape[0])]
+        self._estimators = [[] for i in range(self.n_estimators)]
         self._F_0 = np.log(counts/len(y))
         Y_onehot = (y_[:, None] == self.unique_label[None, :]).astype(int)
         _temp_predictions = np.tile(self._F_0, (y_.shape[0], 1))
