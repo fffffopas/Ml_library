@@ -4,7 +4,7 @@ from .__auxiliary_tree import Node
 from sklearn.base import RegressorMixin, BaseEstimator
 
 class DecisionTreeRegressor(RegressorMixin, BaseEstimator):
-    def __init__(self, max_depth=10, min_samples_split=2, min_samples_leaf=1, max_features="sqrt", random_state=42, min_impurity_decrease=1e-12, min_var=1e-12):
+    def __init__(self, max_depth=10, min_samples_split=2, min_samples_leaf=1, max_features="sqrt", random_state=42, min_impurity_decrease=1e-12, min_var=1e-12, leaf_function=None):
         self.max_depth = max_depth
         self.min_samples_split = min_samples_split
         self.min_samples_leaf = min_samples_leaf
@@ -12,7 +12,14 @@ class DecisionTreeRegressor(RegressorMixin, BaseEstimator):
         self.random_state = random_state
         self.min_impurity_decrease = min_impurity_decrease
         self.min_var = min_var
+        self.leaf_function = leaf_function
 
+    def _get_leaf_value(self, y, index_sample):
+        if self.leaf_function is not None:
+            return self.leaf_function(y, index_sample)
+        
+        return np.mean(y[index_sample])
+    
     def _get_criterion_estimate(self, sum_y, sum_sq_y, n):
         return sum_sq_y/n - (sum_y/n) ** 2
     
@@ -32,7 +39,7 @@ class DecisionTreeRegressor(RegressorMixin, BaseEstimator):
 
     def _build_tree(self, X, y, node, depth, root_criterion, sorted_index, index_sample):
         if(len(y[index_sample]) < self.min_samples_split or depth >= self.max_depth or root_criterion < self.min_var):
-            node.val = np.mean(y[index_sample])
+            node.val = self._get_leaf_value(y, index_sample)
             return 
 
         best_split = [-float("inf")] * 5
@@ -75,7 +82,7 @@ class DecisionTreeRegressor(RegressorMixin, BaseEstimator):
                     best_split = [IG, i, tresholds[j], left_criterion, right_criterion]
 
         if (best_split[0] == -float("inf")):
-            node.val = np.mean(y[index_sample])
+            node.val = self._get_leaf_value(y, index_sample)
             return 
 
         node.tresh = best_split[2]
